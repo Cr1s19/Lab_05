@@ -98,7 +98,7 @@ float subsetEntropy( vector< pair< string, int > > prob, vector< pair< string, i
         {
             if( subsetProb.front().first.substr(0, attribute.length()) == attribute)
             {
-                valuesToEntropy.push_back( make_pair(attribute, subsetProb.front().second) );    
+                valuesToEntropy.push_back( attribute, subsetProb.front() );    
                 subsetProb.erase( subsetProb.begin() );
             }
             else

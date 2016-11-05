@@ -1,5 +1,6 @@
 #include <iostream>
 #include <vector>
+#include <set>
 #include <string>
 #include <algorithm>
 #include <cmath>
@@ -8,21 +9,21 @@ using namespace std; // std:: is implied.
 
 //Get the classification of the examples in a set (column)
 //Returns a vector of pairs: [ (none, 15), (soft, 5), (hard, 4) ]
-vector< pair< string, int > > probability(vector<string> attribute)
+vector< pair< string, int > >probability( vector<string> col)
 {
     int count;
     string name;
     vector< pair< string, int > > prob;
 
-    sort(attribute.begin(), attribute.end());
-    name = attribute[0];
+    sort(col.begin(), col.end());
+    name = col[0];
     count = 1;
-    for( int i = 1; i < attribute.size(); i++ )
+    for( int i = 1; i < col.size(); i++ )
     {
-        if( attribute[i] != name )
+        if( col[i] != name )
         {
             prob.push_back( make_pair(name, count) );
-            name = attribute[i];
+            name = col[i];
             count = 1;
         }   
         else
@@ -30,8 +31,10 @@ vector< pair< string, int > > probability(vector<string> attribute)
             count++;
         }
     }
+    prob.push_back( make_pair(name, count) );
     return prob;
 }
+
 
 //Get the number of examples by attibute given the target
 //Returns a vector of pairs: [ (youngnone, 4), (youngsoft, 2), (younghard, 2), (pre-presbyopicnone, 5), (pre-presbyopicsoft, 2), (pre-presbyopichard, 1), ...  ]
@@ -63,6 +66,8 @@ vector< pair< string, int > > subsetProbability(vector<string> predictor, vector
             count++;
         }
     }
+    subsetProb.push_back( make_pair(actual, count) );
+
     return subsetProb;
 }
 
@@ -85,20 +90,24 @@ float entropy( vector< pair< string, int > > probability)
 
 //Calcuate the subset entropy
 //Uses the vectors returned by probability() and subProbability() to look for the attributes to count
-float subsetEntropy( vector< pair< string, int > > prob, vector< pair< string, int >  > subsetProb )
+float subsetEntropy( int total, vector< pair< string, int > > prob, vector< pair< string, int >  > subsetProb )
 {
     string attribute;
-    float result = 0.0;
+    float count;
+    float result = 0;
     vector< pair< string, int > > valuesToEntropy;
+    
+float temp;
 
     for( int i = 0; i < prob.size(); i++ )
     {
         attribute = prob[i].first;
+        count = 0.0;
         while(subsetProb.size() > 0)
         {
             if( subsetProb.front().first.substr(0, attribute.length()) == attribute)
             {
-                valuesToEntropy.push_back( attribute, subsetProb.front() );    
+                valuesToEntropy.push_back( make_pair(attribute, subsetProb.front().second) );    
                 subsetProb.erase( subsetProb.begin() );
             }
             else
@@ -106,7 +115,14 @@ float subsetEntropy( vector< pair< string, int > > prob, vector< pair< string, i
                 break;
             }
         }
-        result += prob[i].second * entropy( valuesToEntropy );
+    cout << "Atrtibute:" << attribute<< endl;
+        cout << "p " << prob[i].second << endl;
+        cout << "c " << total << endl; 
+        temp = entropy( valuesToEntropy );
+        cout << "H " << temp << endl;
+
+        result += ( prob[i].second / (float)total ) * entropy( valuesToEntropy );
+ cout << "R:" <<result << endl;
         valuesToEntropy.clear();
     }
     return result;
@@ -128,10 +144,14 @@ string chooseAttribute( vector<string> names, vector< vector< string > > dataSet
 
     maxGain = 0;
     targetEntropy = entropy( probability( dataSet.back() ) );
+    cout << "tg E " << targetEntropy << endl;
+
     for(int  i = 0; i < dataSet.size() - 1; i++)
     {
-        subEntropy = subsetEntropy( probability( dataSet[i] ),  subsetProbability( dataSet[i], dataSet.back() ));
+        subEntropy = subsetEntropy(dataSet[0].size(), probability( dataSet[i] ),  subsetProbability( dataSet[i], dataSet.back() ));
+        cout << "ss E " << subEntropy << endl;
         gain = calculateGain(targetEntropy, subEntropy);
+        cout << "g " << gain << endl;
 
         if(gain > maxGain)
         {
@@ -140,6 +160,37 @@ string chooseAttribute( vector<string> names, vector< vector< string > > dataSet
         }
     }
     return choosenAttribute;
+}
+
+void splitOn( int splitOn, vector<string> names, set<string>  attributes, vector< vector< string > > setToSplit )
+{
+    int numSubSet;
+    vector< vector< vector<  string > > > subSets;
+
+    for(int i = 0; i < attributes.size(); i++)
+    {
+        subSets.push_back( setToSplit );
+    }
+
+    int row = 0;
+    for(auto j = attributes.begin(); j != attributes.end(); j++)
+    {
+        numSubSet = distance(attributes.begin(), j);
+        while(row < subSets[numSubSet][splitOn].size())
+        {
+            if(subSets[numSubSet][splitOn][row] != *j)
+            {
+                for(int col = 0; col < subSets[numSubSet].size(); col++)
+                { 
+                    subSets[numSubSet][col].erase(subSets[numSubSet][col].begin() + row);
+                }
+            }
+            else
+            {
+                row++;
+            }
+        }
+    }
 }
 
 //void createNewDataSetAfterSplit
@@ -185,52 +236,112 @@ struct node{
 
 int main(int arg, char** argv)
 {
-	vector<string> v, v1, v2, attributes;
-	vector< vector< string > > data;
+	vector<string> v, v1, v2;
 	string relation;
 	string s;
 
+    int i;
+    bool dataCreated = 0;
+    vector<string> names, aux_attr, aux_data;
+    vector< vector< string > > attributes;
+    vector< vector< string > > data;
+
 	while(getline(cin, s))
     {
-			if(s[0] != '%' && !s.empty())
+        if(s[0] != '%' && !s.empty())
+        {
+			//read only @
+			if(s[0] == '@')
             {
-				//read only @
-				if(s[0] == '@'){
-					//lecture of relation
-					if (s[1] == 'r'){
-						//saving the relation in a string
-						split(s,' ',v);
-						string relation = v[v.size()-1];
-						// cout<< relation << "\n";
-						v.clear();
-
-					}
-					//lecture of attribute
-					if (s[1] == 'a'){
-						// split the the string in name and attributes
-						split(s,'{',v);
-						cout << v[0]<< "\n";
-
-						//split the @attribute and name
-						split(v[0],' ',v1);
-						cout << v1[1]<< "\n";
-
-						//split the attributes by a ,
-						split(v[1],',',v2);
-						cout << v2[v2.size()-1]<< "\n";
-
-						//clear the vector to recive the next attributes correctly
-						v.clear();
-						v1.clear();
-						v2.clear();
-					}
+				//lecture of relation
+				if (s[1] == 'r')
+                {
+					//saving the relation in a string
+					split(s,' ',v);
+					string relation = v[v.size()-1];
+					// cout<< relation << "\n";
+					v.clear();
 				}
-				//lectura de @data
-				split(s,',',v);
-				cout << v[0]<< "\n";
-				v.clear();
-				cout << s << "\n"; 
+				//lecture of attribute
+				if (s[1] == 'a')
+                {
+					// split the the string in name and attributes
+					split(s,'{',v);
+					//cout << v[0]<< "\n";
+
+					//split the @attribute and name
+					split(v[0],' ',v1);
+                    v1[1].erase( remove(v1[1].begin(), v1[1].end(), ' ') , v1[1].end() );
+                    v1[1].erase( remove(v1[1].begin(), v1[1].end(), '\t'), v1[1].end() );
+                    names.push_back(v1[1]);
+					//cout << "name -" << v1[1] << "-\n";
+
+					//split the attributes by a ,
+					split(v[1],',',v2);
+                    for(i = 0; i < v2.size(); i++)
+                    {
+                        if(v2[i].back() == '}')
+                        {
+                            v2[i].pop_back();
+                        }
+                        aux_attr.push_back(v2[i]);
+                    }
+                    attributes.push_back(  aux_attr );
+                    aux_attr.clear();
+				}
 			}
+            else
+            {
+			    //lectura de @data
+			    split(s,',',v);
+                for(int w = 0; w < v.size(); w++)
+                {
+                    if(data.size() < names.size())
+                    {
+                        aux_data.push_back(v[w]);
+                        data.push_back(aux_data);
+                    }
+                    else
+                    {
+                        data[w].push_back(v[w]);
+                    }
+                    aux_data.clear();
+                }
+            }
+			//clear the vector to recive the next attributes correctly
+			v.clear();
+			v1.clear();
+			v2.clear();
+		}
 	}
+
+    vector< pair< string, int > > test;   
+    vector< pair< string, int > > subTest;   
+    test = probability(data[4]);
+
+    for(int i = 0; i < test.size(); i++)
+    {
+        cout << test[i].first << " " << test[i].second << endl;
+    }
+
+    subTest = subsetProbability(data[0], data[4]);
+    for(int i = 0; i < subTest.size(); i++)
+    {
+        cout << subTest[i].first << " " << subTest[i].second << endl;
+    }
+
+    string a = chooseAttribute(names, data);
+    cout << a << endl;
+
+/*
+    for(int i = 0; i < data.size(); i++)
+    {
+        for(int j = 0; j < data[i].size(); j++)
+        {
+            cout << data[i][j] << endl;
+        }
+        cout << endl;
+    }
 	return 0;
+*/
 }

@@ -93,16 +93,12 @@ float entropy( vector< pair< string, int > > probability)
 float subsetEntropy( int total, vector< pair< string, int > > prob, vector< pair< string, int >  > subsetProb )
 {
     string attribute;
-    float count;
     float result = 0;
     vector< pair< string, int > > valuesToEntropy;
-    
-float temp;
 
     for( int i = 0; i < prob.size(); i++ )
     {
         attribute = prob[i].first;
-        count = 0.0;
         while(subsetProb.size() > 0)
         {
             if( subsetProb.front().first.substr(0, attribute.length()) == attribute)
@@ -127,63 +123,76 @@ float calculateGain( float targetEntropy, float subEntropy )
 }
 
 //Get the gain for each attribute and choose the one with the max gain
-//Returns the name of the attribute to split on
-string chooseAttribute( vector<string> names, vector< vector< string > > dataSet )
+//Returns the index of the attribute to split on
+int chooseAttribute( vector<string> names, vector< vector< string > > dataSet )
 {
     float targetEntropy;
     float subEntropy;
     float gain, maxGain;
-    string choosenAttribute;
+    int choosenIndex;
 
     maxGain = 0;
     targetEntropy = entropy( probability( dataSet.back() ) );
-    cout << "tg E " << targetEntropy << endl;
 
     for(int  i = 0; i < dataSet.size() - 1; i++)
     {
+        ///agregar validacion para pure set
         subEntropy = subsetEntropy(dataSet[0].size(), probability( dataSet[i] ),  subsetProbability( dataSet[i], dataSet.back() ));
-        cout << "ss E " << subEntropy << endl;
         gain = calculateGain(targetEntropy, subEntropy);
-        cout << "g " << gain << endl;
 
         if(gain > maxGain)
         {
             maxGain = gain;
-            choosenAttribute = names[i];
+            choosenIndex = i;
         }
     }
-    return choosenAttribute;
+    return choosenIndex;
 }
 
-void splitOn( int splitOn, vector<string> names, set<string>  attributes, vector< vector< string > > setToSplit )
+vector< vector< vector<  string > > > splitOn( int splitOn, vector <string> attributes, vector< vector< string > > setToSplit )
 {
     int numSubSet;
+    int row, size;
     vector< vector< vector<  string > > > subSets;
 
-    for(int i = 0; i < attributes.size(); i++)
+    for(int numSubSet = 0; numSubSet < attributes.size(); numSubSet++)
     {
+        //Create a copy of the original set for each attribute
         subSets.push_back( setToSplit );
-    }
 
-    int row = 0;
-    for(auto j = attributes.begin(); j != attributes.end(); j++)
-    {
-        numSubSet = distance(attributes.begin(), j);
-        while(row < subSets[numSubSet][splitOn].size())
+        row = 0;
+        size = subSets[numSubSet][splitOn].size();   
+        while(row < size)
         {
-            if(subSets[numSubSet][splitOn][row] != *j)
+            //Delete the rows that dont match with the attribute
+            if(subSets[numSubSet][splitOn][row] != attributes[numSubSet])
             {
                 for(int col = 0; col < subSets[numSubSet].size(); col++)
-                { 
-                    subSets[numSubSet][col].erase(subSets[numSubSet][col].begin() + row);
+                {
+                    subSets[numSubSet][col].erase( subSets[numSubSet][col].begin() + row );
                 }
+                size--;
             }
             else
             {
                 row++;
+
+                //Print the new set with format
+                for(int col = 0; col < subSets[numSubSet].size(); col++)
+                {
+                    if(col != splitOn)
+                        cout << subSets[numSubSet][col][row] << "  ";
+                }
+                cout << endl;
+                
             }
         }
+        cout << endl;
+
+        //Delete the column of the attribute splitted
+        subSets[numSubSet].erase( subSets[numSubSet].begin() + splitOn );
     }
+    return subSets;
 }
 
 //void createNewDataSetAfterSplit
@@ -310,31 +319,11 @@ int main(int arg, char** argv)
 
     vector< pair< string, int > > test;   
     vector< pair< string, int > > subTest;   
-    test = probability(data[4]);
+    test = probability(data[3]);
+    subTest = subsetProbability(data[3], data[4]);
 
-    for(int i = 0; i < test.size(); i++)
-    {
-        cout << test[i].first << " " << test[i].second << endl;
-    }
-
-    subTest = subsetProbability(data[0], data[4]);
-    for(int i = 0; i < subTest.size(); i++)
-    {
-        cout << subTest[i].first << " " << subTest[i].second << endl;
-    }
-
-    string a = chooseAttribute(names, data);
+    int a = chooseAttribute(names, data);
     cout << a << endl;
 
-/*
-    for(int i = 0; i < data.size(); i++)
-    {
-        for(int j = 0; j < data[i].size(); j++)
-        {
-            cout << data[i][j] << endl;
-        }
-        cout << endl;
-    }
-	return 0;
-*/
+    splitOn(a, attributes[a], data);
 }

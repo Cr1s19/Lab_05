@@ -4,8 +4,17 @@
 #include <string>
 #include <algorithm>
 #include <cmath>
+#include <queue>
+#include <map>
 
 using namespace std; // std:: is implied.
+
+struct node{
+	string name;
+    vector< struct node *> childs;
+    string answer;
+    int tabs;
+};
 
 //Get the classification of the examples in a set (column)
 //Returns a vector of pairs: [ (none, 15), (soft, 5), (hard, 4) ]
@@ -16,9 +25,9 @@ vector< pair< string, int > >probability( vector<string> col)
     vector< pair< string, int > > prob;
 
     sort(col.begin(), col.end());
-    name = col[0];
+    name = col[1];
     count = 1;
-    for( int i = 1; i < col.size(); i++ )
+    for( int i = 2; i < col.size(); i++ )
     {
         if( col[i] != name )
         {
@@ -38,14 +47,14 @@ vector< pair< string, int > >probability( vector<string> col)
 
 //Get the number of examples by attibute given the target
 //Returns a vector of pairs: [ (youngnone, 4), (youngsoft, 2), (younghard, 2), (pre-presbyopicnone, 5), (pre-presbyopicsoft, 2), (pre-presbyopichard, 1), ...  ]
-vector< pair< string, int > > subsetProbability(vector<string> predictor, vector<string> target)
+vector< pair< string, int > > subsetProbability( vector<string> predictor, vector<string> target )
 {
     int count;
     string actual;
     vector<string> key;
     vector< pair< string, int > > subsetProb;
 
-    for( int i = 0; i < predictor.size(); i++ )
+    for( int i = 1; i < predictor.size(); i++ )
     {
         key.push_back( predictor[i] + target[i] );                
     }
@@ -124,7 +133,7 @@ float calculateGain( float targetEntropy, float subEntropy )
 
 //Get the gain for each attribute and choose the one with the max gain
 //Returns the index of the attribute to split on
-int chooseAttribute( vector<string> names, vector< vector< string > > dataSet )
+int chooseAttribute( vector< vector< string > > dataSet )
 {
     float targetEntropy;
     float subEntropy;
@@ -160,8 +169,11 @@ vector< vector< vector<  string > > > splitOn( int splitOn, vector <string> attr
         //Create a copy of the original set for each attribute
         subSets.push_back( setToSplit );
 
-        row = 0;
+        row = 1;
         size = subSets[numSubSet][splitOn].size();   
+
+        //cout << "SPLIT ON: " << attributes[numSubSet] << endl;
+        //cout << "-----------------" << endl;
         while(row < size)
         {
             //Delete the rows that dont match with the attribute
@@ -178,16 +190,15 @@ vector< vector< vector<  string > > > splitOn( int splitOn, vector <string> attr
                 row++;
 
                 //Print the new set with format
-                for(int col = 0; col < subSets[numSubSet].size(); col++)
+                /*for(int col = 0; col < subSets[numSubSet].size(); col++)
                 {
                     if(col != splitOn)
                         cout << subSets[numSubSet][col][row] << "  ";
                 }
-                cout << endl;
-                
+                cout << endl;*/
             }
         }
-        cout << endl;
+        //cout << endl;
 
         //Delete the column of the attribute splitted
         subSets[numSubSet].erase( subSets[numSubSet].begin() + splitOn );
@@ -195,14 +206,49 @@ vector< vector< vector<  string > > > splitOn( int splitOn, vector <string> attr
     return subSets;
 }
 
-//void createNewDataSetAfterSplit
 
-/*
-void createTree()
+int a;
+struct node *n;
+map<string, vector<string>>::iterator attr_it;
+vector< vector< vector< string > > > subSets;
+
+struct node* createTree( map<string, vector<string>> attributes,  vector< vector< string > > dataSet, int tabs )
 {
+    a = chooseAttribute( dataSet );
 
+
+   if(entropy( probability( dataSet.back() ) ) != 0 )
+    {       
+        a = chooseAttribute( dataSet );    
+        attr_it = attributes.find( dataSet[a][0] );
+        subSets = splitOn(a,  attr_it->second, dataSet); 
+        n = new node;
+        n->name = dataSet[a][0];
+
+        for(int i = 0; i < subSets.size(); i++)
+        {
+            for(int j = 0; j < tabs; j++)
+            {
+                cout << " ";
+            } 
+            cout << "i = " << i << "size = " << subSets.size() << " " << attr_it->first << endl;
+            cout << n->name << ": ";
+            cout << attr_it->second[i] << endl;
+            n->childs.push_back( createTree( attributes, subSets[i], tabs+2 ) );
+        }
+    }
+    else
+    {
+        n->answer = dataSet[ dataSet.size() - 1 ][1];
+        for(int i = 0; i < tabs; i++)
+        {
+            cout << " ";
+        }        
+        cout << "ANSWER: " << n->answer << endl;
+    }
+    return n;
 }
-*/
+
 
 void split(string& s, char delim, vector<string>& v)
 {
@@ -231,11 +277,6 @@ void split(string& s, char delim, vector<string>& v)
     }
 }
 
-struct node{
-	string name;
-	vector<string> type;
-};
-
 int main(int arg, char** argv)
 {
 	vector<string> v, v1, v2;
@@ -245,7 +286,7 @@ int main(int arg, char** argv)
     int i;
     bool dataCreated = 0;
     vector<string> names, aux_attr, aux_data;
-    vector< vector< string > > attributes;
+    map< string, vector< string > > attributes;
     vector< vector< string > > data;
 
 	while(getline(cin, s))
@@ -288,26 +329,26 @@ int main(int arg, char** argv)
                         }
                         aux_attr.push_back(v2[i]);
                     }
-                    attributes.push_back(  aux_attr );
+                    attributes.emplace(  names.back(), aux_attr );
                     aux_attr.clear();
 				}
 			}
             else
             {
 			    //lectura de @data
-			    split(s,',',v);
+                if(data.size() == 0)
+                {
+                    for(int w = 0; w < names.size(); w++)
+                    {
+                        aux_data.push_back(names[w]);
+                        data.push_back(aux_data);
+                        aux_data.clear();
+                    }
+                }
+                split(s,',',v);
                 for(int w = 0; w < v.size(); w++)
                 {
-                    if(data.size() < names.size())
-                    {
-                        aux_data.push_back(v[w]);
-                        data.push_back(aux_data);
-                    }
-                    else
-                    {
-                        data[w].push_back(v[w]);
-                    }
-                    aux_data.clear();
+                    data[w].push_back(v[w]);
                 }
             }
 			//clear the vector to recive the next attributes correctly
@@ -317,13 +358,27 @@ int main(int arg, char** argv)
 		}
 	}
 
-    vector< pair< string, int > > test;   
+
+    /*******/
+/*    vector< pair< string, int > > test;   
     vector< pair< string, int > > subTest;   
     test = probability(data[3]);
     subTest = subsetProbability(data[3], data[4]);
 
-    int a = chooseAttribute(names, data);
+    int a = chooseAttribute(data);
     cout << a << endl;
-
     splitOn(a, attributes[a], data);
+*/
+
+    struct node *b;
+    if(data.size() > 0)
+    {
+        b = createTree(attributes, data, 0);
+    }
+    else
+    {
+        cout << "Error: Empty data set"<< endl;
+    }
+   // printTree(b);
+    
 }

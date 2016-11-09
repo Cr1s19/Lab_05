@@ -246,6 +246,7 @@ struct node* createTree( map<string, vector<string>> attributes,  vector< vector
         }        
         cout << "ANSWER: " << n->answer << endl;
     }
+    subSets.clear();
     return n;
 }
 
